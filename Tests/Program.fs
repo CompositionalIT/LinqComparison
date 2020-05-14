@@ -41,7 +41,7 @@ let myTests =
             testProperty "Original FirstOrDefault is deterministic" <| quickCompare OldEnumerable.FirstOrDefault OldEnumerable.FirstOrDefault id
             testProperty "Original LastOrDefault is deterministic" <| quickCompare OldEnumerable.LastOrDefault OldEnumerable.LastOrDefault id
             testProperty "Original SingleOrDefault is deterministic" <| quickCompare OldEnumerable.SingleOrDefault OldEnumerable.SingleOrDefault id
-            testProperty "Old Select is deterministic" <| quickCompare OldEnumerable.Select OldEnumerable.Select id
+            testProperty "Original Select is deterministic" <| quickCompare OldEnumerable.Select OldEnumerable.Select id
         ] |> testSequenced
         testList "Comparing .NET Core to .NET Framework" [
             testProperty "FirstOrDefault has not changed" <| quickCompare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault id
