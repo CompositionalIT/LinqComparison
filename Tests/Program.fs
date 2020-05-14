@@ -4,17 +4,20 @@ open System.Collections.Generic
 open FsCheck
 
 module Functions =
-    let trackCalls predicate func data =
+    /// A helper function that will track calls to any higher order function passed into another
+    /// function.
+    let trackCalls higherOrderFunc func data =
         let key = obj()
         let mutable count = 0
         let predicate input =
             lock key (fun () -> count <- count + 1)
-            predicate input
+            higherOrderFunc input
         func(data, predicate) |> ignore
         count
 
-let safely thunk x =
-    try Ok(thunk x)
+/// Safely calls any function given some argument, converting the exception into Error<exn>
+let safely thunk arg =
+    try Ok(thunk arg)
     with ex -> Error ex
 
 [<Tests>]
