@@ -19,8 +19,6 @@ let safely thunk arg =
     try Ok(thunk arg)
     with ex -> Error ex
 
-let seed = Random.mkStdGen 0L
-
 let testProp a b = testPropertyWithConfigStdGen (0, 0) FsCheckConfig.defaultConfig a b
 
 [<Tests>]
@@ -28,9 +26,9 @@ let myTests =
     /// Compares two arbitrary functions that take in two arguments: an array of data, and some
     /// higher-order function e.g. a predicate or mapper etc.. It records the number of times that
     /// the higher-order function was called and returns the answer.
-    let quickCompare netCoreFunc netFrameworkFunc prepare after (inputData:_ array) higherOrderFunction =
-        let newResult = inputData |> prepare |> safely (Functions.trackCalls higherOrderFunction netCoreFunc >> (fun (a,b) -> after a, b))
-        let oldResult = inputData |> prepare |> safely (Functions.trackCalls higherOrderFunction netFrameworkFunc >> (fun (a,b) -> after a, b))
+    let quickCompare netCoreFunc netFrameworkFunc before after (inputData:_ array) higherOrderFunction =
+        let newResult = inputData |> before |> safely (Functions.trackCalls higherOrderFunction netCoreFunc >> (fun (a,b) -> after a, b))
+        let oldResult = inputData |> before |> safely (Functions.trackCalls higherOrderFunction netFrameworkFunc >> (fun (a,b) -> after a, b))
         match newResult, oldResult with
         | Error _, Error _ ->
             true
@@ -62,10 +60,10 @@ let myTests =
             ]
             testList "OrderedEnumerable" [
                 let orderIt (x:int array) = x.OrderBy(fun x -> x)
-                testProp "FirstOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault orderIt
-                testProp "LastOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.LastOrDefault OldEnumerable.LastOrDefault orderIt
-                testProp "SingleOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault orderIt
-                testProp "Select has not changed on OrderedEnumerable" <| quickCompare Enumerable.Select OldEnumerable.Select orderIt
+                testProp "FirstOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault orderIt id
+                testProp "LastOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.LastOrDefault OldEnumerable.LastOrDefault orderIt id
+                testProp "SingleOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault orderIt id
+                testProp "Select has not changed on OrderedEnumerable" <| quickCompare Enumerable.Select OldEnumerable.Select orderIt Seq.toArray
             ]
         ]
     ]
