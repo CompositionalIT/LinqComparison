@@ -200,7 +200,49 @@ namespace System.Linq
                 return new WhereArrayIterator<TSource>(source, CombinePredicates(this.predicate, predicate));
             }
         }
+        class WhereListIterator<TSource> : Iterator<TSource>
+        {
+            List<TSource> source;
+            Func<TSource, bool> predicate;
+            List<TSource>.Enumerator enumerator;
 
+            public WhereListIterator(List<TSource> source, Func<TSource, bool> predicate) {
+                this.source = source;
+                this.predicate = predicate;
+            }
+
+            public override Iterator<TSource> Clone() {
+                return new WhereListIterator<TSource>(source, predicate);
+            }
+
+            public override bool MoveNext() {
+                switch (state) {
+                    case 1:
+                        enumerator = source.GetEnumerator();
+                        state = 2;
+                        goto case 2;
+                    case 2:
+                        while (enumerator.MoveNext()) {
+                            TSource item = enumerator.Current;
+                            if (predicate(item)) {
+                                current = item;
+                                return true;
+                            }
+                        }
+                        Dispose();
+                        break;
+                }
+                return false;
+            }
+
+            public override IEnumerable<TResult> Select<TResult>(Func<TSource, TResult> selector) {
+                return new WhereSelectListIterator<TSource, TResult>(source, predicate, selector);
+            }
+
+            public override IEnumerable<TSource> Where(Func<TSource, bool> predicate) {
+                return new WhereListIterator<TSource>(source, CombinePredicates(this.predicate, predicate));
+            }
+        }
         class WhereSelectArrayIterator<TSource, TResult> : Iterator<TResult>
         {
             TSource[] source;
@@ -331,6 +373,14 @@ namespace System.Linq
             if (source is TSource[]) return new WhereSelectArrayIterator<TSource, TResult>((TSource[])source, null, selector);
             if (source is List<TSource>) return new WhereSelectListIterator<TSource, TResult>((List<TSource>)source, null, selector);
             return new WhereSelectEnumerableIterator<TSource, TResult>(source, null, selector);
+        }
+        public static IEnumerable<TSource> Where<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate) {
+            if (source == null) throw new ArgumentNullException("source");
+            if (predicate == null) throw new ArgumentNullException("predicate");
+            if (source is Iterator<TSource>) return ((Iterator<TSource>)source).Where(predicate);
+            if (source is TSource[]) return new WhereArrayIterator<TSource>((TSource[])source, predicate);
+            if (source is List<TSource>) return new WhereListIterator<TSource>((List<TSource>)source, predicate);
+            return new WhereEnumerableIterator<TSource>(source, predicate);
         }
     }
 }
