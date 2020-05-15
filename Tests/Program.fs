@@ -26,7 +26,7 @@ let myTests =
     /// Compares two arbitrary functions that take in two arguments: an array of data, and some
     /// higher-order function e.g. a predicate or mapper etc.. It records the number of times that
     /// the higher-order function was called and returns the answer.
-    let quickCompare netCoreFunc netFrameworkFunc before after (inputData:_ array) higherOrderFunction =
+    let compare netCoreFunc netFrameworkFunc before after (inputData:_ array) higherOrderFunction =
         let actual = inputData |> before |> safely (Functions.trackCalls higherOrderFunction netCoreFunc >> (fun x -> {| x with Result = after x.Result |} ))
         let expected = inputData |> before |> safely (Functions.trackCalls higherOrderFunction netFrameworkFunc >> (fun x -> {| x with Result = after x.Result |}))
         match actual, expected with
@@ -35,39 +35,41 @@ let myTests =
         | _ ->
             Expect.equal actual expected "Both results should be the same"
             true
+    let compareQuick a b = compare a b id id
+    let deterministic a = compare a a id id
 
     testList "All" [
         testList "Deterministic tests" [
             testList ".NET Core" [
-                testProp "FirstOrDefault is deterministic" <| quickCompare Enumerable.FirstOrDefault Enumerable.FirstOrDefault id id
-                testProp "LastOrDefault is deterministic" <| quickCompare Enumerable.LastOrDefault Enumerable.LastOrDefault id id
-                testProp "SingleOrDefault is deterministic" <| quickCompare Enumerable.SingleOrDefault Enumerable.SingleOrDefault id id
-                testProp "Select is deterministic" <| quickCompare Enumerable.Select Enumerable.Select id Seq.toArray
-                testProp "Where is deterministic" <| quickCompare Enumerable.Where Enumerable.Where id Seq.toArray
+                testProp "FirstOrDefault is deterministic" <| deterministic Enumerable.FirstOrDefault
+                testProp "LastOrDefault is deterministic" <| deterministic Enumerable.LastOrDefault
+                testProp "SingleOrDefault is deterministic" <| deterministic Enumerable.SingleOrDefault
+                testProp "Select is deterministic" <| compare Enumerable.Select Enumerable.Select id Seq.toArray
+                testProp "Where is deterministic" <| compare Enumerable.Where Enumerable.Where id Seq.toArray
             ]
             testList ".NET Framework" [
-                testProp "FirstOrDefault is deterministic" <| quickCompare OldEnumerable.FirstOrDefault OldEnumerable.FirstOrDefault id id
-                testProp "LastOrDefault is deterministic" <| quickCompare OldEnumerable.LastOrDefault OldEnumerable.LastOrDefault id id
-                testProp "SingleOrDefault is deterministic" <| quickCompare OldEnumerable.SingleOrDefault OldEnumerable.SingleOrDefault id id
-                testProp "Select is deterministic" <| quickCompare OldEnumerable.Select OldEnumerable.Select id Seq.toArray
-                testProp "Where is deterministic" <| quickCompare OldEnumerable.Where OldEnumerable.Where id Seq.toArray
+                testProp "FirstOrDefault is deterministic" <| deterministic OldEnumerable.FirstOrDefault
+                testProp "LastOrDefault is deterministic" <| deterministic OldEnumerable.LastOrDefault
+                testProp "SingleOrDefault is deterministic" <| deterministic OldEnumerable.SingleOrDefault
+                testProp "Select is deterministic" <| compare OldEnumerable.Select OldEnumerable.Select id Seq.toArray
+                testProp "Where is deterministic" <| compare OldEnumerable.Where OldEnumerable.Where id Seq.toArray
             ]
         ]
         testList "Comparing .NET Core to .NET Framework" [
             testList "Single method" [
-                testProp "FirstOrDefault has not changed" <| quickCompare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault id id
-                testProp "LastOrDefault has not changed" <| quickCompare Enumerable.LastOrDefault OldEnumerable.LastOrDefault id id
-                testProp "SingleOrDefault has not changed" <| quickCompare Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault id id
-                testProp "Select has not changed" <| quickCompare Enumerable.Select OldEnumerable.Select id Seq.toArray
-                testProp "Where has not changed" <| quickCompare Enumerable.Where OldEnumerable.Where id Seq.toArray
+                testProp "FirstOrDefault has not changed" <| compare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault id id
+                testProp "LastOrDefault has not changed" <| compare Enumerable.LastOrDefault OldEnumerable.LastOrDefault id id
+                testProp "SingleOrDefault has not changed" <| compare Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault id id
+                testProp "Select has not changed" <| compare Enumerable.Select OldEnumerable.Select id Seq.toArray
+                testProp "Where has not changed" <| compare Enumerable.Where OldEnumerable.Where id Seq.toArray
             ]
             testList "OrderedEnumerable" [
                 let toOrderable (x:int array) = x.OrderBy(fun x -> x)
-                testProp "FirstOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault toOrderable id
-                testProp "LastOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.LastOrDefault OldEnumerable.LastOrDefault toOrderable id
-                testProp "SingleOrDefault has not changed on OrderedEnumerable" <| quickCompare Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault toOrderable id
-                testProp "Select has not changed on OrderedEnumerable" <| quickCompare Enumerable.Select OldEnumerable.Select toOrderable Seq.toArray
-                testProp "Where has not changed on OrderedEnumerable" <| quickCompare Enumerable.Where OldEnumerable.Where toOrderable Seq.toArray
+                testProp "FirstOrDefault has not changed on OrderedEnumerable" <| compare Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault toOrderable id
+                testProp "LastOrDefault has not changed on OrderedEnumerable" <| compare Enumerable.LastOrDefault OldEnumerable.LastOrDefault toOrderable id
+                testProp "SingleOrDefault has not changed on OrderedEnumerable" <| compare Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault toOrderable id
+                testProp "Select has not changed on OrderedEnumerable" <| compare Enumerable.Select OldEnumerable.Select toOrderable Seq.toArray
+                testProp "Where has not changed on OrderedEnumerable" <| compare Enumerable.Where OldEnumerable.Where toOrderable Seq.toArray
             ]
         ]
     ]
