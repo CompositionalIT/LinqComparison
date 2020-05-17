@@ -6,16 +6,10 @@ open System.Linq
 open Expecto.ExpectoFsCheck
 open Expecto
 
-[<AutoOpen>]
-module Generation =
-    type Identity = Func<int, int>
-    type Predicate = Func<int, bool>
-    let genIdentity<'T when 'T : equality> = Arb.Default.Fun<'T, 'T>() |> Arb.toGen
-    let inline genHof() = Arb.Default.Function() |> Arb.toGen
-    let getFun (Fun f) = f
-
-type Safe<'T> = Result<'T, exn>
+type Identity = Func<int, int>
+type Predicate = Func<int, bool>
 type CallResult<'T> = { Result : 'T; Calls : int }
+
 module Functions =
     let trackCalls predicate func data =
         let mutable count = 0
@@ -25,9 +19,9 @@ module Functions =
         { Result = func(data, higherOrderFunction)
           Calls = count }
 
-    let safely func arg : _ Safe = try Ok(func arg) with ex -> Error ex
-    type Predicate = Function<int, bool>
-    type Identity = Function<int, int>
+    let safely func arg : Result<'T, exn> = try Ok(func arg) with ex -> Error ex
+    type PredicateFunction = Function<int, bool>
+    type IdentityFunction = Function<int, int>
     let makeAggregator hof current old =
         (fun data -> data |> safely (trackCalls hof current)),
         (fun data -> data |> safely (trackCalls hof old))
@@ -35,21 +29,21 @@ module Functions =
         (fun data -> trackCalls hof current data),
         (fun data -> trackCalls hof old data)
     type Aggregator =
-        | FirstOrDefault of Predicate
-        // | LastOrDefault of Predicate
-        | SingleOrDefault of Predicate
-        | Count of Predicate
+        | FirstOrDefault of PredicateFunction
+        | LastOrDefault of PredicateFunction
+        | SingleOrDefault of PredicateFunction
+        | Count of PredicateFunction
         member this.Gen() =
             match this with
             | FirstOrDefault (Fun f) -> makeAggregator f Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault
-            // | LastOrDefault (Fun f) -> makeAggregator f Enumerable.LastOrDefault OldEnumerable.LastOrDefault
+            | LastOrDefault (Fun f) -> makeAggregator f Enumerable.LastOrDefault OldEnumerable.LastOrDefault
             | SingleOrDefault (Fun f) -> makeAggregator f Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault
             | Count (Fun f) -> makeAggregator f Enumerable.Count OldEnumerable.Count
 
     type Mapper =
-        | Select of Identity
-        | Where of Predicate
-        | OrderBy of Identity
+        | Select of IdentityFunction
+        | Where of PredicateFunction
+        | OrderBy of IdentityFunction
         | SelectMany of Function<int,int array>
         | Take of int
         member this.Gen() =
