@@ -15,14 +15,15 @@ module Generation =
     let getFun (Fun f) = f
 
 type Safe<'T> = Result<'T, exn>
-
+type CallResult<'T> = { Result : 'T; Calls : int }
 module Functions =
     let trackCalls predicate func data =
         let mutable count = 0
         let higherOrderFunction input =
             count <- count + 1
             predicate input
-        func(data, higherOrderFunction), count
+        { Result = func(data, higherOrderFunction)
+          Calls = count }
 
     let safely func arg : _ Safe = try Ok(func arg) with ex -> Error ex
     type Predicate = Function<int, bool>
@@ -35,13 +36,13 @@ module Functions =
         (fun data -> trackCalls hof old data)
     type Aggregator =
         | FirstOrDefault of Predicate
-        | LastOrDefault of Predicate
+        // | LastOrDefault of Predicate
         | SingleOrDefault of Predicate
         | Count of Predicate
         member this.Gen() =
             match this with
             | FirstOrDefault (Fun f) -> makeAggregator f Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault
-            | LastOrDefault (Fun f) -> makeAggregator f Enumerable.LastOrDefault OldEnumerable.LastOrDefault
+            // | LastOrDefault (Fun f) -> makeAggregator f Enumerable.LastOrDefault OldEnumerable.LastOrDefault
             | SingleOrDefault (Fun f) -> makeAggregator f Enumerable.SingleOrDefault OldEnumerable.SingleOrDefault
             | Count (Fun f) -> makeAggregator f Enumerable.Count OldEnumerable.Count
 
@@ -57,18 +58,17 @@ module Functions =
             | Where (Fun f) -> makeMapper f Enumerable.Where OldEnumerable.Where
             | OrderBy (Fun f) -> makeMapper f (fun (data,b) -> Enumerable.OrderBy(data, (fun value -> b value)) :> _) (fun (data,b) -> OldEnumerable.OrderBy(data, (fun value -> b value)) :> _)
             | SelectMany (Fun f) -> makeMapper (f >> Array.toSeq) Enumerable.SelectMany OldEnumerable.SelectMany
-            | Take n -> (fun data -> Enumerable.Take(data, n), 0), (fun data -> OldEnumerable.Take(data, n), 0)
+            | Take n -> (fun data -> { Result = Enumerable.Take(data, n); Calls = 0 }), (fun data -> { Result = OldEnumerable.Take(data, n); Calls = 0 })
 
 let executePipeline collectors (data:_ seq) =
     collectors
-    |> Seq.fold(fun (data, count) collector ->
-        let result, additional = collector data
-        result, count + additional)
-        (data, 0)
+    |> Seq.fold(fun state collector ->
+        let output = collector state.Result
+        { output with Calls = output.Calls + state.Calls }) { Result = data; Calls = 0 }
 
-let executeAggregator aggregator (collectorResult, collectorCount) =
-    match collectorResult |> aggregator with
-    | Ok (aggregatorResult, aggregationCount) -> Ok(aggregatorResult, (aggregationCount + collectorCount))
+let executeAggregator aggregator output =
+    match aggregator output.Result with
+    | Ok result -> Ok { result with Calls = result.Calls + output.Calls }
     | Error x -> Error x
 
 let mergeMappers (mappers:Functions.Mapper list) =
@@ -78,8 +78,8 @@ let mergeMappers (mappers:Functions.Mapper list) =
 
 let collectOnly mappers (data:_ array) =
     let newPipeline, oldPipeline = mergeMappers mappers
-    let newResult = data |> executePipeline newPipeline |> (fun (a,b) -> Seq.toArray a, b)
-    let oldResult = data |> executePipeline oldPipeline |> (fun (a,b) -> Seq.toArray a, b)
+    let newResult = data |> executePipeline newPipeline |> (fun output -> { output with Result = output.Result |> Seq.toArray })
+    let oldResult = data |> executePipeline oldPipeline |> (fun output -> { output with Result = output.Result |> Seq.toArray })
     Expect.equal newResult oldResult "Results should be the same"
 
 let collectAndAggregate (input:{| Data : _ NonEmptyArray; Mappers : Functions.Mapper list; Aggregator:Functions.Aggregator |}) =
