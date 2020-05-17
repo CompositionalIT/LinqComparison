@@ -10,6 +10,7 @@ type Identity = Func<int, int>
 type Predicate = Func<int, bool>
 type CallResult<'T> = { Result : 'T; Calls : int }
 
+[<AutoOpen>]
 module Functions =
     let trackCalls predicate func data =
         let mutable count = 0
@@ -33,7 +34,7 @@ module Functions =
         | LastOrDefault of PredicateFunction
         | SingleOrDefault of PredicateFunction
         | Count of PredicateFunction
-        member this.Gen() =
+        member this.Create() =
             match this with
             | FirstOrDefault (Fun f) -> makeAggregator f Enumerable.FirstOrDefault OldEnumerable.FirstOrDefault
             | LastOrDefault (Fun f) -> makeAggregator f Enumerable.LastOrDefault OldEnumerable.LastOrDefault
@@ -46,7 +47,7 @@ module Functions =
         | OrderBy of IdentityFunction
         | SelectMany of Function<int,int array>
         | Take of int
-        member this.Gen() =
+        member this.Create() =
             match this with
             | Select (Fun f) -> makeMapper f Enumerable.Select OldEnumerable.Select
             | Where (Fun f) -> makeMapper f Enumerable.Where OldEnumerable.Where
@@ -65,23 +66,28 @@ let executeAggregator aggregator output =
     | Ok result -> Ok { result with Calls = result.Calls + output.Calls }
     | Error x -> Error x
 
-let mergeMappers (mappers:Functions.Mapper list) =
+let generatePipelines (mappers:Functions.Mapper list) =
     mappers
-    |> List.map(fun mapper -> mapper.Gen())
+    |> List.map(fun mapper -> mapper.Create())
     |> List.unzip
 
-let collectOnly mappers (data:_ array) =
-    let newPipeline, oldPipeline = mergeMappers mappers
+let collectOnly mappers (data:int array) =
+    let newPipeline, oldPipeline = generatePipelines mappers
     let newResult = data |> executePipeline newPipeline |> (fun output -> { output with Result = output.Result |> Seq.toArray })
     let oldResult = data |> executePipeline oldPipeline |> (fun output -> { output with Result = output.Result |> Seq.toArray })
     Expect.equal newResult oldResult "Results should be the same"
 
-let collectAndAggregate (input:{| Data : _ NonEmptyArray; Mappers : Functions.Mapper list; Aggregator:Functions.Aggregator |}) =
-    let newPipeline, oldPipeline = mergeMappers input.Mappers
-    let newAgg, oldAgg = input.Aggregator.Gen()
+type GeneratedInputs =
+    { Data : int NonEmptyArray // generated input data
+      Mappers : Mapper list    // generated list of mappers
+      Aggregator: Aggregator } // generated aggregator
 
-    let newResult = input.Data.Get |> executePipeline newPipeline |> executeAggregator newAgg |> Result.mapError ignore
-    let oldResult = input.Data.Get |> executePipeline oldPipeline |> executeAggregator oldAgg |> Result.mapError ignore
+let collectAndAggregate (input:GeneratedInputs) =
+    let newPipeline, oldPipeline = generatePipelines input.Mappers
+    let newAggregator, oldAggregator = input.Aggregator.Create()
+
+    let newResult = input.Data.Get |> executePipeline newPipeline |> executeAggregator newAggregator |> Result.mapError ignore
+    let oldResult = input.Data.Get |> executePipeline oldPipeline |> executeAggregator oldAggregator |> Result.mapError ignore
 
     Expect.equal newResult oldResult "Results should be the same"
 
