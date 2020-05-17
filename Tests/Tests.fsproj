@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="GenericTests.fs" />
+    <Compile Include="HardCodedTests.fs" />
     <Compile Include="Program.fs" />
     <PackageReference Include="Expecto.FSCheck" Version="9.0.0"/>
     <PackageReference Update="FSharp.Core" Version="4.7.1" />

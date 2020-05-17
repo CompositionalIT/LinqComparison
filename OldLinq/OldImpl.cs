@@ -328,6 +328,22 @@ namespace System.Linq
                 return new WhereEnumerableIterator<TResult>(this, predicate);
             }
         }
+        static IEnumerable<TResult> SelectManyIterator<TSource, TResult>(IEnumerable<TSource> source, Func<TSource, IEnumerable<TResult>> selector) {
+            foreach (TSource element in source) {
+                foreach (TResult subElement in selector(element)) {
+                    yield return subElement;
+                }
+            }
+        }
+        static IEnumerable<TSource> TakeIterator<TSource>(IEnumerable<TSource> source, int count) {
+            if (count > 0) {
+                foreach (TSource element in source) {
+                    yield return element;
+                    if (--count == 0) break;
+                }
+            }
+        }
+
         internal abstract class EnumerableSorter<TElement>
         {
             internal abstract void ComputeKeys(TElement[] elements, int count);
@@ -558,6 +574,15 @@ namespace System.Linq
         }
         public static IOrderedEnumerable<TSource> OrderBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector) {
             return new OrderedEnumerable<TSource, TKey>(source, keySelector, null, false);
+        }
+        public static IEnumerable<TResult> SelectMany<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, IEnumerable<TResult>> selector) {
+            if (source == null) throw new Exception("source");
+            if (selector == null) throw new Exception("selector");
+            return SelectManyIterator<TSource, TResult>(source, selector);
+        }
+        public static IEnumerable<TSource> Take<TSource>(this IEnumerable<TSource> source, int count) {
+            if (source == null) throw new Exception("source");
+            return TakeIterator<TSource>(source, count);
         }
     }
 }
