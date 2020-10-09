@@ -7,7 +7,7 @@ open FsCheck
 module Functions =
     /// A helper function that will track calls to any higher order function passed into another
     /// function.
-    let trackCalls higherOrderFunc func data =
+    let trackCalls func higherOrderFunc data =
         let key = obj()
         let mutable count = 0
         let higherOrderFunc input =
@@ -15,10 +15,10 @@ module Functions =
             higherOrderFunc input
         {| Result = func(data, higherOrderFunc); CallCount = count |}
 
-/// Safely calls any function given some argument, converting the exception into Error<exn>
-let safely thunk arg =
-    try Ok(thunk arg)
-    with ex -> Error ex
+    /// Safely calls any function given some argument, converting the exception into Error<exn>
+    let safely thunk arg =
+        try Ok(thunk arg)
+        with ex -> Error ex
 
 type LinqCompare =
     /// Compares two arbitrary functions that take in two arguments: an array of data, and some
@@ -26,8 +26,8 @@ type LinqCompare =
     /// the higher-order function was called and returns the answer.
     static member check (netCoreFunc, netFrameworkFunc, after) =
         fun (inputData:int array) (hof:Function<int, _>) ->
-            let actual = inputData |> safely (Functions.trackCalls hof.Value netCoreFunc >> (fun x -> {| x with Result = after x.Result |} ))
-            let expected = inputData |> safely (Functions.trackCalls hof.Value netFrameworkFunc >> (fun x -> {| x with Result = after x.Result |}))
+            let actual = inputData |> Functions.safely (Functions.trackCalls (netCoreFunc >> after) hof.Value)
+            let expected = inputData |> Functions.safely (Functions.trackCalls (netFrameworkFunc >> after) hof.Value)
             match actual, expected with
             | Error _, Error _ ->
                 true
