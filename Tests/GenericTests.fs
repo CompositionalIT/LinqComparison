@@ -91,7 +91,21 @@ let collectAndAggregate (input:GeneratedInputs) =
 
     Expect.equal newResult oldResult "Results should be the same"
 
+let compositionalComparison (input:int NonEmptyArray, predicate:PredicateFunction) =
+    let orderByFunc = Function<_,_>.From id
+    let longMappers, _ = [ OrderBy orderByFunc; Where predicate; ] |> generatePipelines
+    let longResult = input.Get |> executePipeline longMappers |> fun a -> Ok { Calls = a.Calls; Result = a.Result.FirstOrDefault() }
+
+    let shortMappers, _ = [ OrderBy orderByFunc ] |> generatePipelines
+    let shortAggregator, _ =
+        let firstOrDefault = FirstOrDefault predicate
+        firstOrDefault.Create()
+    let shortResult = input.Get |> executePipeline shortMappers |> executeAggregator shortAggregator
+
+    Expect.equal longResult shortResult "Should have same behaviour"
+
 let allTests = testList "Generic" [
     testProperty "Collection Methods" collectOnly
     testProperty "Collect and Aggregation Methods" collectAndAggregate
+    testProperty "Composing Differently, Same Result" compositionalComparison
 ]
