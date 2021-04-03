@@ -20,14 +20,17 @@ module Functions =
         try Ok(thunk arg)
         with ex -> Error ex
 
+type InputData = int array
+type HigherOrderFunction<'a> = int -> 'a
+type LinqMethod<'a, 'b> = InputData * HigherOrderFunction<'a> -> 'b
 type LinqCompare =
     /// Compares two arbitrary functions that take in two arguments: an array of data, and some
     /// higher-order function e.g. a predicate or mapper etc.. It records the number of times that
     /// the higher-order function was called and returns the answer.
-    static member check (netCoreFunc, netFrameworkFunc, after) =
-        fun (inputData:int array) (hof:Function<int, _>) ->
-            let actual = inputData |> Functions.safely (Functions.trackCalls (netCoreFunc >> after) hof.Value)
-            let expected = inputData |> Functions.safely (Functions.trackCalls (netFrameworkFunc >> after) hof.Value)
+    static member check (firstFunc:LinqMethod<_,_>, secondFunc:LinqMethod<_,_>, after) =
+        fun (inputData:InputData) (hof:Function<int, _>) ->
+            let actual = inputData |> Functions.safely (Functions.trackCalls (firstFunc >> after) hof.Value)
+            let expected = inputData |> Functions.safely (Functions.trackCalls (secondFunc >> after) hof.Value)
             match actual, expected with
             | Error _, Error _ ->
                 true

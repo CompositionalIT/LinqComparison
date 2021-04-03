@@ -102,7 +102,7 @@ let compositionalComparison (input:int NonEmptyArray, predicate:PredicateFunctio
         firstOrDefault.Create()
     let shortResult = input.Get |> executePipeline shortMappers |> executeAggregator shortAggregator
 
-    Expect.equal longResult shortResult "Should have same behaviour"
+    Expect.equal longResult shortResult "Should have same Result"
 
 let allTests = testList "Generic" [
     testProperty "Collection Methods" collectOnly
